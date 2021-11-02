@@ -176,7 +176,7 @@ func (o *outbound) runOverridingServer(c context.Context) error {
 			// Give DNS server time to start before rerouting NAT
 			dtime.SleepWithContext(c, time.Millisecond)
 
-			err := routeDNS(c, o.dnsConfig.LocalIp, dnsResolverAddr.Port, conn.LocalAddr().(*net.UDPAddr))
+			err := routeDNS(c, o.dnsConfig.LocalIp, dnsResolverAddr.Port, conn.LocalAddr().(*net.UDPAddr), listeners)
 			if err != nil {
 				return err
 			}
@@ -199,10 +199,10 @@ func (o *outbound) dnsListeners(c context.Context) ([]net.PacketConn, error) {
 		return nil, err
 	}
 	listeners := []net.PacketConn{listener}
-	if runningInDocker() {
-		// Inside docker. Don't add docker bridge
-		return listeners, nil
-	}
+	//if runningInDocker() {
+	//// Inside docker. Don't add docker bridge
+	//return listeners, nil
+	//}
 
 	// This is the default docker bridge. We need to listen here because the nat logic we use to intercept
 	// dns packets will divert the packet to the interface it originates from, which in the case of
@@ -292,7 +292,7 @@ const tpDNSChain = "telepresence-dns"
 // that all packets sent to the currently configured DNS service are rerouted to our local
 // DNS service. Another rule ensures that when our local DNS service cannot resolve and
 // uses a fallback, that fallback reaches the original DNS service.
-func routeDNS(c context.Context, dnsIP net.IP, toPort int, fallback *net.UDPAddr) (err error) {
+func routeDNS(c context.Context, dnsIP net.IP, toPort int, fallback *net.UDPAddr, listeners []net.PacketConn) (err error) {
 	// create the chain
 	unrouteDNS(c)
 	if err = runNatTableCmd(c, "-N", tpDNSChain); err != nil {
@@ -314,14 +314,25 @@ func routeDNS(c context.Context, dnsIP net.IP, toPort int, fallback *net.UDPAddr
 		return err
 	}
 
-	// This rule redirects all packets intended for the DNS service to our local DNS service
-	return runNatTableCmd(c, "-A", tpDNSChain,
-		"-p", "udp",
-		"--dest", dnsIP.String()+"/32",
-		"--dport", "53",
-		"-j", "REDIRECT",
-		"--to-ports", strconv.Itoa(toPort),
-	)
+	if runningInDocker() && len(listeners) > 1 {
+		err = runNatTableCmd(c, "-A", tpDNSChain,
+			"-p", "udp",
+			"--dest", dnsIP.String()+"/32",
+			"--dport", "53",
+			"-j", "DNAT",
+			"--to-destination", listeners[1].LocalAddr().String(),
+		)
+		return err
+	} else {
+		// This rule redirects all packets intended for the DNS service to our local DNS service
+		return runNatTableCmd(c, "-A", tpDNSChain,
+			"-p", "udp",
+			"--dest", dnsIP.String()+"/32",
+			"--dport", "53",
+			"-j", "REDIRECT",
+			"--to-ports", strconv.Itoa(toPort),
+		)
+	}
 }
 
 // unrouteDNS removes the chain installed by routeDNS.
