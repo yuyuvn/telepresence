@@ -2,20 +2,13 @@ module github.com/telepresenceio/telepresence/v2
 
 go 1.17
 
-// github.com/datawire/ambassador/v2 v2.2.2 brins those in. We don't need them
-exclude (
-	github.com/argoproj/argo-rollouts v1.1.1
-	k8s.io/api v0.21.9
-	k8s.io/kubernetes v1.21.9
-)
-
 require (
 	github.com/Microsoft/go-winio v0.5.1
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/coreos/go-iptables v0.6.0
-	github.com/datawire/ambassador/v2 v2.2.2
 	github.com/datawire/dlib v1.2.5-0.20211116212847-0316f8d7af2b
 	github.com/datawire/dtest v0.0.0-20210928162311-722b199c4c2f
+	github.com/datawire/metriton-go-client v0.1.1
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/godbus/dbus/v5 v5.0.4
 	github.com/google/go-cmp v0.5.7
