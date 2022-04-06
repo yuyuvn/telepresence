@@ -50,7 +50,6 @@ rules:
   - list
   - get
   - patch
-  - update
 {{- if eq . (include "telepresence.namespace" $) }}
 - apiGroups:
   - ""
